@@ -1,3 +1,4 @@
+```javascript
 const express = require("express");
 const crypto = require("crypto");
 
@@ -16,17 +17,11 @@ app.use(express.json());
 // ============================================
 
 app.use(function (req, res, next) {
-
-    res.setHeader(
-        "Access-Control-Allow-Origin",
-        "*"
-    );
-
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader(
         "Access-Control-Allow-Methods",
         "GET,POST,OPTIONS"
     );
-
     res.setHeader(
         "Access-Control-Allow-Headers",
         "Content-Type"
@@ -46,24 +41,17 @@ app.use(function (req, res, next) {
 const otpStore = new Map();
 
 // ============================================
-// PHILIPPINE PHONE NUMBER
+// PHONE NUMBER
 // ============================================
 
 function normalizePhilippineNumber(phone) {
-
-    var number = String(phone || "")
+    let number = String(phone || "")
         .trim()
         .replace(/[\s()-]/g, "");
-
-    // +639XXXXXXXXX
-    // becomes 639XXXXXXXXX
 
     if (number.indexOf("+63") === 0) {
         number = number.substring(1);
     }
-
-    // 09XXXXXXXXX
-    // becomes 639XXXXXXXXX
 
     if (number.indexOf("09") === 0) {
         number = "63" + number.substring(1);
@@ -73,21 +61,17 @@ function normalizePhilippineNumber(phone) {
 }
 
 function isValidPhilippineNumber(phone) {
-
     return /^639\d{9}$/.test(phone);
-
 }
 
 // ============================================
-// SECURE OTP GENERATOR
+// OTP
 // ============================================
 
 function generateOTP() {
-
     return crypto
         .randomInt(100000, 1000000)
         .toString();
-
 }
 
 // ============================================
@@ -95,16 +79,10 @@ function generateOTP() {
 // ============================================
 
 app.get("/", function (req, res) {
-
     res.status(200).json({
-
         success: true,
-
-        message:
-            "Attendance OTP server is running."
-
+        message: "Attendance OTP server is running."
     });
-
 });
 
 // ============================================
@@ -117,39 +95,21 @@ app.post(
 
         try {
 
-            // --------------------------------
-            // GET PHONE
-            // --------------------------------
-
-            var phone =
+            const phone =
                 normalizePhilippineNumber(
                     req.body && req.body.phone
                 );
 
-            // --------------------------------
-            // VALIDATE PHONE
-            // --------------------------------
-
-            if (
-                !isValidPhilippineNumber(phone)
-            ) {
+            if (!isValidPhilippineNumber(phone)) {
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Enter a valid Philippine mobile number."
-
                 });
-
             }
 
-            // --------------------------------
-            // GET SEMAPHORE API KEY
-            // --------------------------------
-
-            var apiKey =
+            const apiKey =
                 process.env.SEMAPHORE_API_KEY;
 
             if (!apiKey) {
@@ -159,104 +119,68 @@ app.post(
                 );
 
                 return res.status(500).json({
-
                     success: false,
-
                     message:
                         "SMS service is not configured on the server."
-
                 });
-
             }
 
-            // --------------------------------
-            // GENERATE OTP
-            // --------------------------------
+            // Generate a secure 6-digit OTP
+            const otp = generateOTP();
 
-            var otp = generateOTP();
-
-            var expiresAt =
-                Date.now() + (5 * 60 * 1000);
-
-            // --------------------------------
-            // SAVE OTP
-            // --------------------------------
+            // OTP expires after 5 minutes
+            const expiresAt =
+                Date.now() + 5 * 60 * 1000;
 
             otpStore.set(phone, {
-
                 otp: otp,
-
                 expiresAt: expiresAt,
-
                 attempts: 0
-
             });
-
-            // --------------------------------
-            // LOG
-            // --------------------------------
 
             console.log(
                 "Preparing OTP for " + phone
             );
 
-            // --------------------------------
-            // SEND SMS
-            // --------------------------------
+            // ========================================
+            // SEMAPHORE SMS REQUEST
+            // ========================================
 
-            var semaphoreResponse =
+            const semaphoreResponse =
                 await fetch(
                     "https://api.semaphore.co/api/v4/otp",
                     {
-
                         method: "POST",
 
                         headers: {
-
                             "Content-Type":
                                 "application/x-www-form-urlencoded"
-
                         },
 
                         body:
                             new URLSearchParams({
-
-                                apikey:
-                                    apiKey,
-
-                                number:
-                                    phone,
+                                apikey: apiKey,
+                                number: phone,
 
                                 message:
                                     "Your Attendance System password reset code is {otp}. It expires in 5 minutes.",
 
-                                code:
-                                    otp
-
+                                code: otp
                             })
-
                     }
                 );
 
-            // --------------------------------
-            // READ RESPONSE
-            // --------------------------------
-
-            var responseText =
+            const responseText =
                 await semaphoreResponse.text();
 
-            var semaphoreResult;
+            let semaphoreResult;
 
             try {
-
                 semaphoreResult =
                     JSON.parse(responseText);
-
             } catch (error) {
-
                 semaphoreResult =
                     responseText;
-
             }
 
             console.log(
@@ -264,36 +188,32 @@ app.post(
                 semaphoreResult
             );
 
-            // --------------------------------
-            // HTTP ERROR
-            // --------------------------------
+            // ========================================
+            // CHECK HTTP RESPONSE
+            // ========================================
 
             if (!semaphoreResponse.ok) {
 
                 otpStore.delete(phone);
 
                 return res.status(502).json({
-
                     success: false,
-
                     message:
                         "Semaphore could not send the SMS."
-
                 });
-
             }
 
-            // --------------------------------
-            // CHECK PROVIDER STATUS
-            // --------------------------------
+            // ========================================
+            // CHECK PROVIDER RESPONSE
+            // ========================================
 
-            var providerFailed = false;
+            let providerFailed = false;
 
             if (
                 Array.isArray(semaphoreResult)
             ) {
 
-                var firstResult =
+                const firstResult =
                     semaphoreResult[0];
 
                 if (
@@ -305,9 +225,7 @@ app.post(
                         firstResult.status === "error"
                     )
                 ) {
-
                     providerFailed = true;
-
                 }
 
             } else if (
@@ -321,47 +239,33 @@ app.post(
                     semaphoreResult.status === "Error" ||
                     semaphoreResult.status === "error"
                 ) {
-
                     providerFailed = true;
-
                 }
-
             }
-
-            // --------------------------------
-            // PROVIDER FAILED
-            // --------------------------------
 
             if (providerFailed) {
 
                 otpStore.delete(phone);
 
                 return res.status(502).json({
-
                     success: false,
-
                     message:
                         "The SMS provider rejected the message."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // SUCCESS
-            // --------------------------------
+            // ========================================
 
             console.log(
                 "OTP request accepted for " + phone
             );
 
             return res.status(200).json({
-
                 success: true,
-
                 message:
                     "OTP sent successfully."
-
             });
 
         } catch (error) {
@@ -372,16 +276,11 @@ app.post(
             );
 
             return res.status(500).json({
-
                 success: false,
-
                 message:
                     "Internal server error while sending OTP."
-
             });
-
         }
-
     }
 );
 
@@ -395,64 +294,50 @@ app.post(
 
         try {
 
-            // --------------------------------
-            // GET VALUES
-            // --------------------------------
-
-            var phone =
+            const phone =
                 normalizePhilippineNumber(
                     req.body && req.body.phone
                 );
 
-            var otp =
+            const otp =
                 String(
                     (req.body && req.body.otp) || ""
                 ).trim();
 
-            var newPassword =
+            const newPassword =
                 String(
                     (req.body && req.body.newPassword) || ""
                 );
 
-            // --------------------------------
+            // ========================================
             // VALIDATE PHONE
-            // --------------------------------
+            // ========================================
 
-            if (
-                !isValidPhilippineNumber(phone)
-            ) {
+            if (!isValidPhilippineNumber(phone)) {
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Invalid Philippine mobile number."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // VALIDATE OTP
-            // --------------------------------
+            // ========================================
 
             if (!/^\d{6}$/.test(otp)) {
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "OTP must contain exactly 6 digits."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // VALIDATE PASSWORD
-            // --------------------------------
+            // ========================================
 
             if (
                 newPassword.length < 8 ||
@@ -460,39 +345,31 @@ app.post(
             ) {
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Password must be between 8 and 128 characters."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // FIND OTP
-            // --------------------------------
+            // ========================================
 
-            var savedOTP =
+            const savedOTP =
                 otpStore.get(phone);
 
             if (!savedOTP) {
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "OTP expired or not found. Request a new OTP."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // CHECK EXPIRATION
-            // --------------------------------
+            // ========================================
 
             if (
                 Date.now() >
@@ -502,19 +379,15 @@ app.post(
                 otpStore.delete(phone);
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "OTP has expired. Request a new OTP."
-
                 });
-
             }
 
-            // --------------------------------
-            // LIMIT ATTEMPTS
-            // --------------------------------
+            // ========================================
+            // CHECK ATTEMPTS
+            // ========================================
 
             if (
                 savedOTP.attempts >= 5
@@ -523,19 +396,15 @@ app.post(
                 otpStore.delete(phone);
 
                 return res.status(429).json({
-
                     success: false,
-
                     message:
                         "Too many incorrect OTP attempts. Request a new OTP."
-
                 });
-
             }
 
-            // --------------------------------
+            // ========================================
             // CHECK OTP
-            // --------------------------------
+            // ========================================
 
             if (
                 savedOTP.otp !== otp
@@ -544,19 +413,15 @@ app.post(
                 savedOTP.attempts++;
 
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Incorrect OTP."
-
                 });
-
             }
 
-            // --------------------------------
-            // OTP VERIFIED
-            // --------------------------------
+            // ========================================
+            // VERIFIED
+            // ========================================
 
             otpStore.delete(phone);
 
@@ -565,17 +430,10 @@ app.post(
                 phone
             );
 
-            // --------------------------------
-            // SUCCESS RESPONSE
-            // --------------------------------
-
             return res.status(200).json({
-
                 success: true,
-
                 message:
                     "OTP verified successfully."
-
             });
 
         } catch (error) {
@@ -586,16 +444,11 @@ app.post(
             );
 
             return res.status(500).json({
-
                 success: false,
-
                 message:
                     "Internal server error while verifying OTP."
-
             });
-
         }
-
     }
 );
 
@@ -615,4 +468,4 @@ app.listen(
 
     }
 );
- 
+```
