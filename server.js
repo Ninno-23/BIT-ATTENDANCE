@@ -1,4 +1,3 @@
- 
 const express = require("express");
 const crypto = require("crypto");
 
@@ -6,15 +5,11 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-// ============================================
-// MIDDLEWARE
-// ============================================
-
 app.use(express.json());
 
-// ============================================
-// CORS
-// ============================================
+/* ================================
+   CORS
+================================ */
 
 app.use(function (req, res, next) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -34,15 +29,15 @@ app.use(function (req, res, next) {
     next();
 });
 
-// ============================================
-// TEMPORARY OTP STORAGE
-// ============================================
+/* ================================
+   TEMPORARY OTP STORAGE
+================================ */
 
 const otpStore = new Map();
 
-// ============================================
-// PHONE NUMBER
-// ============================================
+/* ================================
+   PHONE NUMBER
+================================ */
 
 function normalizePhilippineNumber(phone) {
     let number = String(phone || "")
@@ -64,9 +59,9 @@ function isValidPhilippineNumber(phone) {
     return /^639\d{9}$/.test(phone);
 }
 
-// ============================================
-// OTP
-// ============================================
+/* ================================
+   OTP
+================================ */
 
 function generateOTP() {
     return crypto
@@ -74,9 +69,9 @@ function generateOTP() {
         .toString();
 }
 
-// ============================================
-// HEALTH CHECK
-// ============================================
+/* ================================
+   HEALTH CHECK
+================================ */
 
 app.get("/", function (req, res) {
     res.status(200).json({
@@ -85,23 +80,21 @@ app.get("/", function (req, res) {
     });
 });
 
-// ============================================
-// SEND OTP
-// ============================================
+/* ================================
+   SEND OTP
+================================ */
 
 app.post(
     "/api/auth/forgot-password",
     async function (req, res) {
 
         try {
-
             const phone =
                 normalizePhilippineNumber(
                     req.body && req.body.phone
                 );
 
             if (!isValidPhilippineNumber(phone)) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -113,7 +106,6 @@ app.post(
                 process.env.SEMAPHORE_API_KEY;
 
             if (!apiKey) {
-
                 console.error(
                     "SEMAPHORE_API_KEY is missing."
                 );
@@ -125,10 +117,8 @@ app.post(
                 });
             }
 
-            // Generate a secure 6-digit OTP
             const otp = generateOTP();
 
-            // OTP expires after 5 minutes
             const expiresAt =
                 Date.now() + 5 * 60 * 1000;
 
@@ -142,9 +132,9 @@ app.post(
                 "Preparing OTP for " + phone
             );
 
-            // ========================================
-            // SEMAPHORE SMS REQUEST
-            // ========================================
+            /* ============================
+               SEMAPHORE
+            ============================ */
 
             const semaphoreResponse =
                 await fetch(
@@ -161,10 +151,8 @@ app.post(
                             new URLSearchParams({
                                 apikey: apiKey,
                                 number: phone,
-
                                 message:
-                                    "Your Attendance System password reset code is {otp}. It expires in 5 minutes.",
-
+                                    "Your BIT Attendance password reset code is {otp}. It expires in 5 minutes.",
                                 code: otp
                             })
                     }
@@ -188,12 +176,7 @@ app.post(
                 semaphoreResult
             );
 
-            // ========================================
-            // CHECK HTTP RESPONSE
-            // ========================================
-
             if (!semaphoreResponse.ok) {
-
                 otpStore.delete(phone);
 
                 return res.status(502).json({
@@ -203,16 +186,15 @@ app.post(
                 });
             }
 
-            // ========================================
-            // CHECK PROVIDER RESPONSE
-            // ========================================
+            /* ============================
+               CHECK PROVIDER STATUS
+            ============================ */
 
             let providerFailed = false;
 
             if (
                 Array.isArray(semaphoreResult)
             ) {
-
                 const firstResult =
                     semaphoreResult[0];
 
@@ -227,12 +209,10 @@ app.post(
                 ) {
                     providerFailed = true;
                 }
-
             } else if (
                 semaphoreResult &&
                 typeof semaphoreResult === "object"
             ) {
-
                 if (
                     semaphoreResult.status === "Failed" ||
                     semaphoreResult.status === "failed" ||
@@ -244,7 +224,6 @@ app.post(
             }
 
             if (providerFailed) {
-
                 otpStore.delete(phone);
 
                 return res.status(502).json({
@@ -253,10 +232,6 @@ app.post(
                         "The SMS provider rejected the message."
                 });
             }
-
-            // ========================================
-            // SUCCESS
-            // ========================================
 
             console.log(
                 "OTP request accepted for " + phone
@@ -284,16 +259,15 @@ app.post(
     }
 );
 
-// ============================================
-// VERIFY OTP
-// ============================================
+/* ================================
+   VERIFY OTP
+================================ */
 
 app.post(
     "/api/auth/verify-reset",
     async function (req, res) {
 
         try {
-
             const phone =
                 normalizePhilippineNumber(
                     req.body && req.body.phone
@@ -309,12 +283,7 @@ app.post(
                     (req.body && req.body.newPassword) || ""
                 );
 
-            // ========================================
-            // VALIDATE PHONE
-            // ========================================
-
             if (!isValidPhilippineNumber(phone)) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -322,12 +291,7 @@ app.post(
                 });
             }
 
-            // ========================================
-            // VALIDATE OTP
-            // ========================================
-
             if (!/^\d{6}$/.test(otp)) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -335,15 +299,10 @@ app.post(
                 });
             }
 
-            // ========================================
-            // VALIDATE PASSWORD
-            // ========================================
-
             if (
                 newPassword.length < 8 ||
                 newPassword.length > 128
             ) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -351,15 +310,10 @@ app.post(
                 });
             }
 
-            // ========================================
-            // FIND OTP
-            // ========================================
-
             const savedOTP =
                 otpStore.get(phone);
 
             if (!savedOTP) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -367,15 +321,10 @@ app.post(
                 });
             }
 
-            // ========================================
-            // CHECK EXPIRATION
-            // ========================================
-
             if (
                 Date.now() >
                 savedOTP.expiresAt
             ) {
-
                 otpStore.delete(phone);
 
                 return res.status(400).json({
@@ -385,14 +334,9 @@ app.post(
                 });
             }
 
-            // ========================================
-            // CHECK ATTEMPTS
-            // ========================================
-
             if (
                 savedOTP.attempts >= 5
             ) {
-
                 otpStore.delete(phone);
 
                 return res.status(429).json({
@@ -402,14 +346,9 @@ app.post(
                 });
             }
 
-            // ========================================
-            // CHECK OTP
-            // ========================================
-
             if (
                 savedOTP.otp !== otp
             ) {
-
                 savedOTP.attempts++;
 
                 return res.status(400).json({
@@ -418,10 +357,6 @@ app.post(
                         "Incorrect OTP."
                 });
             }
-
-            // ========================================
-            // VERIFIED
-            // ========================================
 
             otpStore.delete(phone);
 
@@ -452,20 +387,17 @@ app.post(
     }
 );
 
-// ============================================
-// START SERVER
-// ============================================
+/* ================================
+   START SERVER
+================================ */
 
 app.listen(
     PORT,
     "0.0.0.0",
     function () {
-
         console.log(
             "Attendance OTP server running on port " +
             PORT
         );
-
     }
 );
- 
