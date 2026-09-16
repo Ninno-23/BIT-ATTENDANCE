@@ -1,0 +1,12 @@
+{
+  "name": "attendance-otp-server",
+  "version": "1.0.0",
+  "description": "Attendance system OTP server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
