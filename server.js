@@ -1,278 +1,435 @@
-const express = require("express");
+// ============================================
+// ATTENDANCE SYSTEM - FORGOT PASSWORD OTP
+// ============================================
 
-const app = express();
+const App = {
 
-app.use(express.json());
+    // ========================================
+    // FORGOT PASSWORD FORM
+    // ========================================
 
-const PORT = process.env.PORT || 3000;
+    showForgotPassword(show) {
 
-// Temporary OTP storage
-const otpStore = new Map();
+        const forgotForm =
+            document.getElementById("forgotPasswordForm");
 
-function normalizePhilippineNumber(phone) {
-  let number = String(phone || "").replace(/[\s()-]/g, "");
+        if (!forgotForm) {
+            console.error(
+                "forgotPasswordForm was not found."
+            );
+            return;
+        }
 
-  if (number.startsWith("09")) {
-    number = "63" + number.substring(1);
-  } else if (number.startsWith("+63")) {
-    number = number.substring(1);
-  }
+        if (show) {
 
-  return number;
-}
+            forgotForm.classList.remove("hidden");
 
-function isValidPhilippineNumber(phone) {
-  return /^639\d{9}$/.test(phone);
-}
+            const step1 =
+                document.getElementById("resetStep1");
+
+            const step2 =
+                document.getElementById("resetStep2");
+
+            const notice =
+                document.getElementById("resetNotice");
+
+            if (step1) {
+                step1.classList.remove("hidden");
+            }
+
+            if (step2) {
+                step2.classList.add("hidden");
+            }
+
+            if (notice) {
+                notice.textContent = "";
+            }
+
+        } else {
+
+            forgotForm.classList.add("hidden");
+
+            const step1 =
+                document.getElementById("resetStep1");
+
+            const step2 =
+                document.getElementById("resetStep2");
+
+            const notice =
+                document.getElementById("resetNotice");
+
+            if (step1) {
+                step1.classList.remove("hidden");
+            }
+
+            if (step2) {
+                step2.classList.add("hidden");
+            }
+
+            if (notice) {
+                notice.textContent = "";
+            }
+        }
+    },
 
 
-// ==============================
-// SERVER TEST
-// ==============================
+    // ========================================
+    // SEND OTP
+    // ========================================
 
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Attendance OTP server is running."
-  });
-});
+    requestResetCode: async function () {
+
+        const phoneInput =
+            document.getElementById("resetPhone");
+
+        const notice =
+            document.getElementById("resetNotice");
+
+        if (!phoneInput || !notice) {
+
+            console.error(
+                "Forgot password elements are missing."
+            );
+
+            return;
+        }
 
 
-// ==============================
-// SEND OTP
-// ==============================
+        const phone =
+            phoneInput.value.trim();
 
-app.post("/api/auth/forgot-password", async (req, res) => {
-  try {
 
-    const { phone } = req.body || {};
+        if (!phone) {
 
-    const normalizedPhone =
-      normalizePhilippineNumber(phone);
+            notice.textContent =
+                "Please enter your recovery phone number.";
 
-    if (!isValidPhilippineNumber(normalizedPhone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Enter a valid Philippine mobile number."
-      });
+            return;
+        }
+
+
+        // Remove spaces, brackets and hyphens
+        const normalizedPhone =
+            phone.replace(/[\s()-]/g, "");
+
+
+        // Philippine number validation
+        const validPH =
+            /^09\d{9}$/.test(normalizedPhone) ||
+            /^\+639\d{9}$/.test(normalizedPhone);
+
+
+        if (!validPH) {
+
+            notice.textContent =
+                "Enter a valid Philippine mobile number.";
+
+            return;
+        }
+
+
+        notice.textContent =
+            "Sending OTP...";
+
+
+        try {
+
+            const response = await fetch(
+                "YOUR-RENDER-URL/api/auth/forgot-password",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        phone: normalizedPhone
+                    })
+                }
+            );
+
+
+            let result;
+
+            try {
+                result = await response.json();
+            } catch {
+
+                result = {
+                    success: false,
+                    message:
+                        "The server returned an invalid response."
+                };
+            }
+
+
+            if (!response.ok || !result.success) {
+
+                notice.textContent =
+                    result.message ||
+                    "Unable to send OTP.";
+
+                return;
+            }
+
+
+            notice.textContent =
+                "OTP sent successfully. Check your phone.";
+
+
+            // Move to OTP step
+            const step1 =
+                document.getElementById("resetStep1");
+
+            const step2 =
+                document.getElementById("resetStep2");
+
+            if (step1) {
+                step1.classList.add("hidden");
+            }
+
+            if (step2) {
+                step2.classList.remove("hidden");
+            }
+
+
+            // Clear previous values
+            const otpInput =
+                document.getElementById("smsCodeInput");
+
+            const passwordInput =
+                document.getElementById("newPasswordInput");
+
+            const confirmPasswordInput =
+                document.getElementById(
+                    "confirmPasswordInput"
+                );
+
+            if (otpInput) {
+                otpInput.value = "";
+            }
+
+            if (passwordInput) {
+                passwordInput.value = "";
+            }
+
+            if (confirmPasswordInput) {
+                confirmPasswordInput.value = "";
+            }
+
+
+            // Put cursor in OTP field
+            if (otpInput) {
+                otpInput.focus();
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Send OTP error:",
+                error
+            );
+
+            notice.textContent =
+                "Could not connect to the OTP server.";
+        }
+    },
+
+
+    // ========================================
+    // VERIFY OTP AND RESET PASSWORD
+    // ========================================
+
+    submitPasswordReset: async function () {
+
+        const phoneInput =
+            document.getElementById("resetPhone");
+
+        const otpInput =
+            document.getElementById("smsCodeInput");
+
+        const passwordInput =
+            document.getElementById("newPasswordInput");
+
+        const confirmPasswordInput =
+            document.getElementById(
+                "confirmPasswordInput"
+            );
+
+        const notice =
+            document.getElementById("resetNotice");
+
+
+        if (
+            !phoneInput ||
+            !otpInput ||
+            !passwordInput ||
+            !confirmPasswordInput ||
+            !notice
+        ) {
+
+            console.error(
+                "Password reset elements are missing."
+            );
+
+            return;
+        }
+
+
+        const phone =
+            phoneInput.value.trim();
+
+        const otp =
+            otpInput.value.trim();
+
+        const newPassword =
+            passwordInput.value;
+
+        const confirmPassword =
+            confirmPasswordInput.value;
+
+
+        // ====================================
+        // VALIDATE OTP
+        // ====================================
+
+        if (!/^\d{6}$/.test(otp)) {
+
+            notice.textContent =
+                "Enter the 6-digit OTP.";
+
+            otpInput.focus();
+
+            return;
+        }
+
+
+        // ====================================
+        // VALIDATE PASSWORD
+        // ====================================
+
+        if (newPassword.length < 8) {
+
+            notice.textContent =
+                "Password must be at least 8 characters.";
+
+            passwordInput.focus();
+
+            return;
+        }
+
+
+        // ====================================
+        // CONFIRM PASSWORD
+        // ====================================
+
+        if (newPassword !== confirmPassword) {
+
+            notice.textContent =
+                "Passwords do not match.";
+
+            confirmPasswordInput.focus();
+
+            return;
+        }
+
+
+        notice.textContent =
+            "Verifying OTP...";
+
+
+        try {
+
+            const response = await fetch(
+                "YOUR-RENDER-URL/api/auth/verify-reset",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        phone: phone,
+
+                        otp: otp,
+
+                        newPassword:
+                            newPassword
+
+                    })
+                }
+            );
+
+
+            let result;
+
+            try {
+                result = await response.json();
+            } catch {
+
+                result = {
+                    success: false,
+                    message:
+                        "The server returned an invalid response."
+                };
+            }
+
+
+            if (!response.ok || !result.success) {
+
+                notice.textContent =
+                    result.message ||
+                    "OTP verification failed.";
+
+                return;
+            }
+
+
+            notice.textContent =
+                "OTP verified successfully.";
+
+
+            /*
+             * IMPORTANT:
+             *
+             * The current Render server verifies
+             * the OTP, but it does NOT yet save
+             * the new password to your instructor
+             * account database.
+             *
+             * We will connect that after the
+             * OTP system is confirmed working.
+             */
+
+
+            otpInput.value = "";
+            passwordInput.value = "";
+            confirmPasswordInput.value = "";
+
+
+        } catch (error) {
+
+            console.error(
+                "Password reset error:",
+                error
+            );
+
+            notice.textContent =
+                "Could not connect to the OTP server.";
+        }
     }
 
-    if (!process.env.SEMAPHORE_API_KEY) {
+};
 
-      console.error(
-        "SEMAPHORE_API_KEY is missing."
-      );
 
-      return res.status(500).json({
-        success: false,
-        message: "SMS service is not configured."
-      });
-    }
+// ============================================
+// MAKE APP AVAILABLE TO HTML
+// ============================================
 
-
-    // Generate 6-digit OTP
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
-
-
-    // Store OTP for 5 minutes
-    otpStore.set(normalizedPhone, {
-      otp: otp,
-      expiresAt: Date.now() + (5 * 60 * 1000)
-    });
-
-
-    // Send SMS using Semaphore
-    const response = await fetch(
-      "https://api.semaphore.co/api/v4/messages",
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded"
-        },
-
-        body: new URLSearchParams({
-          apikey: process.env.SEMAPHORE_API_KEY,
-
-          number: normalizedPhone,
-
-          message:
-            `Your password reset code is ${otp}. It expires in 5 minutes.`
-        })
-      }
-    );
-
-
-    const result = await response.json();
-
-
-    if (!response.ok) {
-
-      console.error(
-        "Semaphore error:",
-        result
-      );
-
-      otpStore.delete(normalizedPhone);
-
-      return res.status(502).json({
-        success: false,
-        message:
-          "SMS provider failed to send the OTP."
-      });
-    }
-
-
-    console.log(
-      `OTP sent to ${normalizedPhone}`
-    );
-
-
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent successfully."
-    });
-
-
-  } catch (error) {
-
-    console.error(
-      "Forgot password error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error."
-    });
-  }
-});
-
-
-// ==============================
-// VERIFY OTP
-// ==============================
-
-app.post("/api/auth/verify-reset", async (req, res) => {
-
-  try {
-
-    const {
-      phone,
-      otp,
-      newPassword
-    } = req.body || {};
-
-
-    const normalizedPhone =
-      normalizePhilippineNumber(phone);
-
-
-    if (!isValidPhilippineNumber(normalizedPhone)) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid Philippine mobile number."
-      });
-    }
-
-
-    if (!/^\d{6}$/.test(String(otp || ""))) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "OTP must contain 6 digits."
-      });
-    }
-
-
-    if (!newPassword ||
-        newPassword.length < 8) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password must be at least 8 characters."
-      });
-    }
-
-
-    const saved =
-      otpStore.get(normalizedPhone);
-
-
-    if (!saved) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "OTP expired or not found."
-      });
-    }
-
-
-    if (Date.now() > saved.expiresAt) {
-
-      otpStore.delete(normalizedPhone);
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "OTP has expired."
-      });
-    }
-
-
-    if (String(saved.otp) !== String(otp)) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Incorrect OTP."
-      });
-    }
-
-
-    // OTP is correct
-    otpStore.delete(normalizedPhone);
-
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "OTP verified successfully."
-    });
-
-
-  } catch (error) {
-
-    console.error(
-      "Verify reset error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error."
-    });
-  }
-
-});
-
-
-// ==============================
-// START SERVER
-// ==============================
-
-app.listen(PORT, () => {
-
-  console.log(
-    `OTP server running on port ${PORT}`
-  );
-
-});
+window.App = App;
