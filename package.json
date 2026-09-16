@@ -1,7 +1,7 @@
 {
   "name": "attendance-otp-server",
-  "version": "1.0.0",
-  "description": "Attendance System OTP SMS Server",
+  "version": "1.0.1",
+  "description": "BIT Attendance real SMS OTP server using Semaphore",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -13,4 +13,3 @@
     "express": "^5.1.0"
   }
 }
- 
