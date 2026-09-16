@@ -135,7 +135,7 @@ const App = {
         try {
 
             const response = await fetch(
-                "YOUR-RENDER-URL/api/auth/forgot-password",
+                "https://bit-attendance.onrender.com",
                 {
                     method: "POST",
 
@@ -344,7 +344,7 @@ const App = {
         try {
 
             const response = await fetch(
-                "YOUR-RENDER-URL/api/auth/verify-reset",
+                "https://attendance-otp-server.onrender.com/api/auth/verify-reset",
                 {
                     method: "POST",
 
